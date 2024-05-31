@@ -1,0 +1,61 @@
+<body>
+<h1 id="55bus"></h1>
+<h2>next bus: in <span id="diffMin0"></span> mins <span id="diffSecs0"></span> secs, at <span id="time0"></span></h2> 
+<h2>second bus: in <span id="diffMin1"></span> mins <span id="diffSecs1"></span> secs, at <span id="time1"></span></h2> 
+<p>sfmta api last checked: <span id="lastchecked"></span></p> 
+</body>
+
+<script defer>
+    STOPS = [
+            {
+                "name": "55 bus",
+                "destination": "16th St & Mission St",
+                "id": "55bus",
+                "departureTimes": [-1, -1],
+            }
+    ];
+    var curDate = new Date(Date.now());
+    function setCurDate() {
+        curDate = new Date(Date.now());
+        for (const stop of STOPS) {
+            updateUI(0, stop.departureTimes[0]);
+            updateUI(1, stop.departureTimes[1]);
+        }
+    }
+    function updateUI(busnum, departureDate) {
+        var timediff = Math.max(departureDate - curDate, 0);
+        document.getElementById("time"+busnum).innerHTML = departureDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"});
+        document.getElementById("diffMin"+busnum).innerHTML = Math.round(timediff/60/1000);
+        document.getElementById("diffSecs"+busnum).innerHTML = Math.round((timediff/1000)%60);
+    }
+    function fetchData() {
+        fetch("https://api.511.org/transit/StopMonitoring?api_key=16f90417-c223-435d-a31b-ad028602c11b&agency=SF&stopcode=13410&format=json")
+            .then((response) => response.json())
+            .then((json) => {
+                var stopsData = json["ServiceDelivery"]["StopMonitoringDelivery"]["MonitoredStopVisit"];
+                for (stop of STOPS) {
+                    var times = 0;
+                    document.getElementById(stop["id"]).innerHTML = stop["name"];
+                    for (bus of stopsData) {
+                        if (bus["MonitoredVehicleJourney"]["DestinationName"] === stop["destination"]) {
+                            departure = bus["MonitoredVehicleJourney"]["MonitoredCall"]["AimedDepartureTime"];
+                            var departureDate = new Date(departure);
+                            stop["departureTimes"][times] = departureDate;
+                            updateUI(times, departureDate);
+                            times++;
+                        }
+                        if (times >= 2) {
+                            break;
+                        }
+                    }
+                }
+                document.getElementById("lastchecked").innerHTML = curDate.toLocaleString("en-US", {timeZone: "America/Los_Angeles"});
+            });
+    }
+
+    fetchData();
+    setCurDate();
+    setInterval(setCurDate, 1000);
+    setInterval(fetchData, 60*1000);
+
+</script>
